@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>QR Code Scanner</title>
+  <style>
+    html, body, video { margin: 0; padding: 0; width: 100%; height: 100%; }
+    #openButton { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); padding: 10px 20px; background: lightblue; border: none; border-radius: 5px; display: none; }
+  </style>
+  <script src="https://unpkg.com/@zxing/library@0.18.6/umd/index.min.js"></script>
+</head>
+<body>
+  <video id="video" autoplay></video>
+  <button id="openButton">Open in Sheets App</button>
+
+  <script>
+    window.addEventListener('load', function () {
+      let video = document.getElementById('video');
+      let openButton = document.getElementById('openButton');
+      let codeReader = new ZXing.BrowserQRCodeReader();
+
+      codeReader
+        .getVideoInputDevices()
+        .then((videoInputDevices) => {
+          if (videoInputDevices.length >= 1) {
+            codeReader.decodeFromVideoDevice(videoInputDevices[0].deviceId, video, (result, err) => {
+              if (result) {
+                console.log(result.text);
+                let assetNumber = result.text.slice(-8);
+
+                // Reset the reader to stop scanning
+                codeReader.reset();
+
+                // Make a request to your Google Apps Script API
+                fetch('https://script.google.com/macros/s/AKfycbyaBt7vxqrsN4WyVotuJmJQsLIBKmCZJ6dkr8lTcs09bsL4-3_rApWdEcy5shkIf6pt/exec?asset=' + assetNumber)
+                  .then(response => response.json())
+                  .then(data => {
+                    // If on Android, show the button instead of redirecting
+                    if (navigator.userAgent.match(/Android/i)) {
+                      openButton.style.display = 'block';
+                      openButton.onclick = function() {
+                        // Replace the https://docs.google.com/spreadsheets/d/ part of the URL with intent://spreadsheets/d/
+                        window.location.href = data.url.replace("https://docs.google.com/spreadsheets/d/", "intent://spreadsheets/d/") + "#Intent;scheme=https;package=com.google.android.apps.docs.editors.sheets;end";
+                      };
+                    } else {
+                      window.location.href = data.url;
+                    }
+                  })
+                  .catch(error => console.error('Error:', error));
+              }
+              if (err && !(err instanceof ZXing.NotFoundException)) {
+                console.error(err);
+              }
+            });
+          }
+        })
+        .catch((err) => console.error(err));
+    });
+  </script>
+</body>
+</html>
