@@ -2,27 +2,32 @@
 <html>
 <head>
   <title>QR Code Scanner</title>
-<style>
-  html, body, video { margin: 0; padding: 0; width: 100%; height: 100%; }
-  #openButton, #switchButton { position: fixed; bottom: 20px; left: 50%; padding: 60px 120px; background: lightblue; border: none; border-radius: 5px; display: none; font-size: 24px; }
-  #switchButton { left: 10%; }
-</style>
+  <style>
+    html, body, video { margin: 0; padding: 0; width: 100%; height: 100%; }
+    #openButton, #switchButton, #torchButton { position: fixed; bottom: 20px; left: 50%; padding: 30px 60px; background: lightblue; border: none; border-radius: 5px; display: none; font-size: 24px; }
+    #switchButton { left: 10%; }
+    #torchButton { left: 90%; transform: translateX(-100%); }
+  </style>
   <script src="https://unpkg.com/@zxing/library@0.18.6/umd/index.min.js"></script>
 </head>
 <body>
   <video id="video" autoplay></video>
   <button id="openButton">Open in Sheets App</button>
   <button id="switchButton">Switch Camera</button>
+  <button id="torchButton">Toggle Torch</button>
 
   <script>
     window.addEventListener('load', function () {
       let video = document.getElementById('video');
       let openButton = document.getElementById('openButton');
       let switchButton = document.getElementById('switchButton');
+      let torchButton = document.getElementById('torchButton');
       let codeReader = new ZXing.BrowserQRCodeReader();
       let currentDeviceIndex = 0;
       let videoInputDevices = [];
-
+      let track;
+      let torchStatus = false;
+      
       function startScanning(deviceId) {
         codeReader.reset();  // reset the previous reader.
         codeReader.decodeFromVideoDevice(deviceId, video, (result, err) => {
@@ -53,6 +58,8 @@
           if (err && !(err instanceof ZXing.NotFoundException)) {
             console.error(err);
           }
+        }).then(function (ctrl) {
+          track = ctrl.stream.getVideoTracks()[0];
         });
       }
 
@@ -67,6 +74,18 @@
               currentDeviceIndex = (currentDeviceIndex + 1) % videoInputDevices.length;
               startScanning(videoInputDevices[currentDeviceIndex].deviceId);
             };
+
+            // Torch button logic
+            torchButton.style.display = 'block';
+            torchButton.onclick = function() {
+              torchStatus = !torchStatus;
+              if (track && typeof track.getCapabilities === 'function') {
+                let capabilities = track.getCapabilities();
+                if (capabilities.torch) {
+                  track.applyConstraints({advanced: [{torch: torchStatus}]})
+                }
+              }
+            };
           }
         })
         .catch((err) => console.error(err));
@@ -74,3 +93,4 @@
   </script>
 </body>
 </html>
+
